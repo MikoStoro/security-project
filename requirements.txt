@@ -1,0 +1,10 @@
+asarPy==1.0.1
+certifi==2024.2.2
+cffi==1.16.0
+cryptography==42.0.5
+lxml==5.2.1
+pycparser==2.22
+pycryptodome==3.20.0
+pyOpenSSL==24.1.0
+python-magic==0.4.27
+signxml==3.2.2
