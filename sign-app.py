@@ -237,7 +237,7 @@ class GUIAPP:
     def btn_generate_fun(self, key_name, pin):
         if(len(str(pin)) < 4):
             self.alert("PIN must be at least 4 characters long!")
-            return
+            return False
         
         pin = convert_pin(pin)
 
@@ -255,10 +255,10 @@ class GUIAPP:
         save_key(encrypted_private,private_name)
 
         self.alert("Successfully generated keyes:\n" + public_name + "\n" + private_name)
-        self.keys_popup.after(500,lambda: self.keys_popup.destroy())
-        self.keys_popup.title('duuuupa')
+        return True
 
     def keys_window(self):
+        close_window = False
         self.keys_popup = tk.Tk()
         self.keys_popup.geometry(f'{self.window_width}x{self.window_height}+{self.center_x}+{self.center_y}')
         self.keys_popup.title('Keys generation')
@@ -267,9 +267,9 @@ class GUIAPP:
         entry_kname = ttk.Entry(self.keys_popup)
         label_pin = ttk.Label(self.keys_popup, text="PIN")
         entry_pin =  ttk.Entry(self.keys_popup)
-        btn_generate = ttk.Button(self.keys_popup, text="Generate", command=lambda:  self.btn_generate_fun(entry_kname.get(), entry_pin.get()))
+        btn_generate = ttk.Button(self.keys_popup, text="Generate", command=lambda: self.btn_generate_fun(entry_kname.get(), entry_pin.get()))
         btn_close = ttk.Button(self.keys_popup, text="Back", command= lambda: self.keys_popup.destroy())
-
+        
         label_kname.pack()
         entry_kname.pack()
         label_pin.pack()
@@ -279,26 +279,47 @@ class GUIAPP:
 
         self.keys_popup.mainloop()
         
-    def select_file(self):
-        filetypes = (
-            ('text files', '*.txt'),
-            ('All files', '*.*')
-        )
-
+    def select_file(self, reason):
         filename = fd.askopenfilename(
             title='Choose a file to sign',
             initialdir='.')
-        self.selected_document = filename
-
+        
+        if reason == 'doc':
+            self.selected_document = filename
+        if reason == 'key':
+            self.selected_key = filename
 
     def sign_window(self):
         self.selected_document = ''
+        self.selected_key = ''
         self.sign_popup = tk.Tk()
         self.sign_popup.geometry(f'{self.window_width}x{self.window_height}+{self.center_x}+{self.center_y}')
         self.sign_popup.title('Sign document')
+        
 
-        btn_sign = ttk.Button(self.sign_popup)
+        label_selected_doc = ttk.Label(self.sign_popup, text='no document selected')
+        label_selected_key = ttk.Label(self.sign_popup, text='no key selected')
+        label_name = ttk.Label(self.sign_popup, text="Enter your name")
+        entry_name = ttk.Entry(self.sign_popup)
+        btn_select_doc = ttk.Button(self.sign_popup, text="select document", command=lambda: (self.select_file('doc'), label_selected_doc.config(text=self.selected_document),self.sign_popup.lift()))
+        btn_select_key = ttk.Button(self.sign_popup, text="select private key (encrypted)", command=lambda: (self.select_file('key'), label_selected_key.config(text=self.selected_key),self.sign_popup.lift())) 
+        label_pin = ttk.Label(self.sign_popup, text="Private key's pin")
+        entry_pin = ttk.Entry(self.sign_popup)
 
+        btn_sign = ttk.Button(self.sign_popup, text="Sign the document")
+
+        label_name.pack()
+        entry_name.pack()
+        btn_select_doc.pack()
+        label_selected_doc.pack()
+        btn_select_key.pack()
+        label_selected_key.pack()
+        label_pin.pack()
+        entry_pin.pack()
+        
+        btn_sign.pack()
+
+        self.sign_popup.mainloop()
 
     def __init__(self):
         self.window = tk.Tk()
