@@ -11,7 +11,7 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 import os
 import tkinter as tk
-
+from tkinter import filedialog as fd
 
 def generate_fake_message():
     return ''.join([ 'b' for i in range(4096)])
@@ -24,7 +24,7 @@ def generate_key_pair(length = 4096):
     return private,public
 
 def save_key(key,name = "key"):
-    with open(name, 'rb') as f:
+    with open(name, 'wb') as f:
         f.write(key)
 
 mode = AES.MODE_ECB
@@ -213,35 +213,117 @@ verify_xml_signature(signature_filename, path_to_file, public)
 '''
 
 
+class keys_win():
+    def __init__():
+        pass
 
-
-def show_popup():
-    popup = tk.Tk()
-    popup.title('aaaa')
-    popup.mainloop()
-
-
-
-window = tk.Tk()
-window.title()
-
-window_width = 300
-window_height = 200
-screen_width = window.winfo_screenwidth()
-screen_height = window.winfo_screenheight()
-center_x = int(screen_width/2 - window_width / 2)
-center_y = int(screen_height/2 - window_height / 2)
-
-window.geometry(f'{window_width}x{window_height}+{center_x}+{center_y}')
+class GUIAPP:
 
 
 
-button1 = ttk.Button(window, text="popup", command=show_popup)
-button1.pack()
+    def alert(self, message):
+        alert = tk.Tk()
+        alert.geometry(f'{self.window_width}x{self.window_height}+{self.center_x}+{self.center_y}')
+        alert.title("Alert")
+        
+        label_message = ttk.Label(alert, text=message)
+        btn_alert = ttk.Button(alert, text="OK", command=lambda:alert.destroy())
+        
+        label_message.pack()
+        btn_alert.pack()
+
+        alert.mainloop()
+
+    def btn_generate_fun(self, key_name, pin):
+        if(len(str(pin)) < 4):
+            self.alert("PIN must be at least 4 characters long!")
+            return
+        
+        pin = convert_pin(pin)
+
+        private_name =  "private.key"
+        public_name = "public.key"
 
 
-message = tk.Label(window, text="Hello, World!")
-message.pack()
-window.mainloop()
+        if key_name != '':
+            private_name = key_name + '.' + private_name
+            public_name = key_name + '.' + public_name
+
+        private,public = generate_key_pair()
+        encrypted_private = encrypt_key_aes(private,pin)
+        save_key(public,public_name)
+        save_key(encrypted_private,private_name)
+
+        self.alert("Successfully generated keyes:\n" + public_name + "\n" + private_name)
+        self.keys_popup.after(500,lambda: self.keys_popup.destroy())
+        self.keys_popup.title('duuuupa')
+
+    def keys_window(self):
+        self.keys_popup = tk.Tk()
+        self.keys_popup.geometry(f'{self.window_width}x{self.window_height}+{self.center_x}+{self.center_y}')
+        self.keys_popup.title('Keys generation')
+
+        label_kname = ttk.Label(self.keys_popup, text="Name")
+        entry_kname = ttk.Entry(self.keys_popup)
+        label_pin = ttk.Label(self.keys_popup, text="PIN")
+        entry_pin =  ttk.Entry(self.keys_popup)
+        btn_generate = ttk.Button(self.keys_popup, text="Generate", command=lambda:  self.btn_generate_fun(entry_kname.get(), entry_pin.get()))
+        btn_close = ttk.Button(self.keys_popup, text="Back", command= lambda: self.keys_popup.destroy())
+
+        label_kname.pack()
+        entry_kname.pack()
+        label_pin.pack()
+        entry_pin.pack()
+        btn_generate.pack()
+        btn_close.pack()
+
+        self.keys_popup.mainloop()
+        
+    def select_file(self):
+        filetypes = (
+            ('text files', '*.txt'),
+            ('All files', '*.*')
+        )
+
+        filename = fd.askopenfilename(
+            title='Choose a file to sign',
+            initialdir='.')
+        self.selected_document = filename
+
+
+    def sign_window(self):
+        self.selected_document = ''
+        self.sign_popup = tk.Tk()
+        self.sign_popup.geometry(f'{self.window_width}x{self.window_height}+{self.center_x}+{self.center_y}')
+        self.sign_popup.title('Sign document')
+
+        btn_sign = ttk.Button(self.sign_popup)
+
+
+    def __init__(self):
+        self.window = tk.Tk()
+        self.window.title()
+        self.window_width = 300
+        self.window_height = 200
+        self.screen_width = self.window.winfo_screenwidth()
+        self.screen_height = self.window.winfo_screenheight()
+        self.center_x = int(self.screen_width/2 - self.window_width / 2)
+        self.center_y = int(self.screen_height/2 - self.window_height / 2)
+
+        popup1 = None
+        popup2 = None
+        self.window.geometry(f'{self.window_width}x{self.window_height}+{self.center_x}+{self.center_y}')
+        self.window.title("EPIC SECURITY APP")
+
+
+        btn_generate_key = ttk.Button(self.window, text="Generate key pair", command=self.keys_window)
+        btn_sign_doc = ttk.Button(self.window, text="Sign document", command=self.sign_window)
+
+        btn_generate_key.pack()
+        btn_sign_doc.pack()
+        self.window.mainloop()
+
+app = GUIAPP()
+
 #print(encrypted)
 #print(decrypted_key)
