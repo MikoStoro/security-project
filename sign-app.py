@@ -44,13 +44,8 @@ def decrypt_key_aes(data,pin):
     decyphered = unpad(cipher.decrypt(data),16)
     return decyphered
 
-def encrypt_hash(file_hash, private_key):
-    private1 = RSA.import_key(private_key)
-    private_signer = pkcs1_15.new(private1)
-
 def create_signature(file_hash, private_key):
     private1 = RSA.import_key(private_key)
-    SHA256.new()
     private_signer = pkcs1_15.new(private1)
     signature = private_signer.sign(file_hash)
     #return signature
@@ -62,7 +57,7 @@ def create_signature(file_hash, private_key):
 #public_key - str representing key in pem/der format
 def verify_signature(file_hash: SHA256.SHA256Hash, signed_hash:str, public_key:str):
     signed_hash = base64.b64decode(signed_hash.encode())
-    public1 = RSA.import_key(public)
+    public1 = RSA.import_key(public_key)
     public_verifier = pkcs1_15.new(public1)
     try:
         public_verifier.verify(file_hash, signed_hash)
@@ -82,8 +77,7 @@ def check_keys (msg_hash, private, public):
         return False
 
 def get_filetype(path):
-    mime = magic.Magic(mime=True)
-    return mime.from_file("testfile")
+    return magic.from_file(path, mime = True)
 
 def get_file_hash(path):
     with open(path, 'rb', buffering=0) as f:
@@ -98,10 +92,9 @@ def get_file_hash(path):
     hash_object = SHA256.new(data)
     return hash_object
 
-def generate_signature(name, path_to_file, private_key):
+def generate_signature_xml(name, path_to_file, private_key):
     filename = ''.join(path_to_file.split('/')[-1].split('.')[:-1])
     filesize = str(os.path.getsize(path_to_file))
-    print(filesize)
     filemod = os.path.getmtime(path_to_file)
     filemod = datetime.utcfromtimestamp(filemod)
     filemod =  filemod.strftime("%m/%d/%Y, %H:%M:%S")
@@ -167,6 +160,17 @@ def verify_xml_signature(path_to_signature, path_to_file, public_key):
 
     #print(signed_by,timestamp,signed_hash)
 
+def get_private_key(path,pin):
+    file = open(path, 'rb')
+    key = file.read()
+    file.close()
+    return decrypt_key_aes(key, pin)
+
+def get_public_key(path):
+    file = open(path, 'rb')
+    key = file.read()
+    file.close()
+    return key
 
 def convert_pin(pin):
     if type(pin) == bytes:
@@ -306,7 +310,7 @@ class GUIAPP:
         label_pin = ttk.Label(self.sign_popup, text="Private key's pin")
         entry_pin = ttk.Entry(self.sign_popup)
 
-        btn_sign = ttk.Button(self.sign_popup, text="Sign the document")
+        btn_sign = ttk.Button(self.sign_popup, text="Sign the document", command=lambda: create_signature(self.selected_key))
 
         label_name.pack()
         entry_name.pack()
@@ -345,6 +349,9 @@ class GUIAPP:
         self.window.mainloop()
 
 app = GUIAPP()
+
+generate_signature_xml('miko', "./fake_file.cpp", private_key=get_private_key("key.private.key", b'1234'))
+verify_xml_signature("./fake_file_signature.xml", './fake_file.cpp', get_public_key('./key.public.key'))
 
 #print(encrypted)
 #print(decrypted_key)
