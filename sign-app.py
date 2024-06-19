@@ -45,7 +45,11 @@ def decrypt_key_aes(data,pin):
     return decyphered
 
 def create_signature(file_hash, private_key):
-    private1 = RSA.import_key(private_key)
+    try:
+        private1 = RSA.import_key(private_key)
+    except:
+        tk.messagebox.showerror('error', 'Pin is incorrect or an invalid key was chosen')
+        return
     private_signer = pkcs1_15.new(private1)
     signature = private_signer.sign(file_hash)
     #return signature
@@ -92,7 +96,7 @@ def get_file_hash(path):
     hash_object = SHA256.new(data)
     return hash_object
 
-def generate_signature_xml(name, path_to_file, private_key):
+def generate_signature_xml(name, path_to_file, private_key_path, pkey_pin:str):
     filename = ''.join(path_to_file.split('/')[-1].split('.')[:-1])
     filesize = str(os.path.getsize(path_to_file))
     filemod = os.path.getmtime(path_to_file)
@@ -100,6 +104,9 @@ def generate_signature_xml(name, path_to_file, private_key):
     filemod =  filemod.strftime("%m/%d/%Y, %H:%M:%S")
     filetype = get_filetype(path_to_file)
 
+
+    private_key=get_private_key(private_key_path, pkey_pin.encode())
+    print("PKEY: " + str(private_key))
     signature = ET.Element('signature')
     tree = ET.ElementTree(signature)
     signed_by = ET.SubElement(signature,'signed_by')
@@ -108,6 +115,7 @@ def generate_signature_xml(name, path_to_file, private_key):
     sign_time.text = datetime.now().strftime("%m/%d/%Y, %H:%M:%S")
 
     filehash = get_file_hash(path_to_file)
+    
     signed_filehash = create_signature(filehash,private_key)
     document_hash = ET.SubElement(signature, "document_hash")
 
@@ -126,6 +134,7 @@ def generate_signature_xml(name, path_to_file, private_key):
 
     write_name = filename + "_signature.xml"
     tree.write(write_name)
+    tk.messagebox.showinfo('information', 'Signature created as: ' + str(write_name))
     return write_name
 
 
@@ -147,6 +156,20 @@ def verify_xml_signature(path_to_signature, path_to_file, public_key):
     docsize_ok = metadata.find("document_size").text ==  str(os.path.getsize(path_to_file))
     docmod_ok = metadata.find("last_modification").text == datetime.utcfromtimestamp(os.path.getmtime(path_to_file)).strftime("%m/%d/%Y, %H:%M:%S")
     print(docname_ok, doctype_ok, docsize_ok, docmod_ok)
+    
+    metadata_ok = (docname_ok and docsize_ok and doctype_ok and docmod_ok)
+    print(metadata_ok)
+    if docname_ok: docname_ok = 'Unchanged'
+    else: docname_ok = 'Changed'
+
+    if doctype_ok: doctype_ok = 'Unchanged'
+    else: doctype_ok = 'Changed'
+    
+    if docsize_ok: docsize_ok = 'Unchanged'
+    else: docsize_ok = 'Changed'
+
+    if docmod_ok: docmod_ok = 'Unchanged'
+    else: docmod_ok = 'Changed'
 
     filehash = get_file_hash(path_to_file)
     verification_result = verify_signature(filehash, signed_hash, public_key)
@@ -155,7 +178,23 @@ def verify_xml_signature(path_to_signature, path_to_file, public_key):
         signature_status = "Valid"
     else:
         signature_status = "Invalid"
-    message = "Signature status: " + signature_status
+    message = "SIGNATURE STATUS: " + signature_status +"\n"
+
+
+    message += "Document name: " + str(docname_ok) + "\n"
+    message += "Document type: " + str(doctype_ok) + "\n"
+    message += "Document size: " + str(docsize_ok) + "\n"
+    message += "Last modification time: " + str(docmod_ok) + "\n"
+
+    if signature_status == "Valid":
+        if metadata_ok:
+            tk.messagebox.showinfo('information', message)
+        else:
+            tk.messagebox.showwarning('warning', message)
+    else:
+        tk.messagebox.showerror('error', message)
+
+
     print(message)
 
     #print(signed_by,timestamp,signed_hash)
@@ -223,8 +262,6 @@ class keys_win():
 
 class GUIAPP:
 
-
-
     def alert(self, message):
         alert = tk.Tk()
         alert.geometry(f'{self.window_width}x{self.window_height}+{self.center_x}+{self.center_y}')
@@ -285,13 +322,16 @@ class GUIAPP:
         
     def select_file(self, reason):
         filename = fd.askopenfilename(
-            title='Choose a file to sign',
+            title='Please select a file',
             initialdir='.')
         
         if reason == 'doc':
             self.selected_document = filename
+            self.selected_document_hash = get_file_hash(filename)
         if reason == 'key':
             self.selected_key = filename
+        if reason == 'signature':
+            self.selected_signature = filename
 
     def sign_window(self):
         self.selected_document = ''
@@ -310,7 +350,8 @@ class GUIAPP:
         label_pin = ttk.Label(self.sign_popup, text="Private key's pin")
         entry_pin = ttk.Entry(self.sign_popup)
 
-        btn_sign = ttk.Button(self.sign_popup, text="Sign the document", command=lambda: create_signature(self.selected_key))
+
+        btn_sign = ttk.Button(self.sign_popup, text="Sign the document", command=lambda: generate_signature_xml(entry_name.get(),self.selected_document,self.selected_key,entry_pin.get()))
 
         label_name.pack()
         entry_name.pack()
@@ -324,6 +365,39 @@ class GUIAPP:
         btn_sign.pack()
 
         self.sign_popup.mainloop()
+
+    def verify_window(self):
+        self.selected_document = ''
+        self.selected_key = ''
+        self.selected_signature = ''
+        self.verify_popup = tk.Tk()
+        self.verify_popup.geometry(f'{self.window_width}x{self.window_height}+{self.center_x}+{self.center_y}')
+        self.verify_popup.title('Verify signature')
+        
+
+        label_selected_doc = ttk.Label(self.verify_popup, text='no document selected')
+        label_selected_key = ttk.Label(self.verify_popup, text='no key selected')
+        label_selected_sig = ttk.Label(self.verify_popup, text='no signature selected')
+        btn_select_sig = ttk.Button(self.verify_popup, text="select signature", command=lambda: (self.select_file('signature'), label_selected_sig.config(text=self.selected_signature),self.verify_popup.lift()))
+
+        btn_select_doc = ttk.Button(self.verify_popup, text="select document", command=lambda: (self.select_file('doc'), label_selected_doc.config(text=self.selected_document),self.verify_popup.lift()))
+        
+        btn_select_key = ttk.Button(self.verify_popup, text="select public key", command=lambda: (self.select_file('key'), label_selected_key.config(text=self.selected_key),self.verify_popup.lift())) 
+
+        btn_verify = ttk.Button(self.verify_popup, text="Verify signature", command=lambda: verify_xml_signature(self.selected_signature,self.selected_document,get_public_key(self.selected_key)))
+
+
+        btn_select_sig.pack()
+        label_selected_sig.pack()
+        btn_select_doc.pack()
+        label_selected_doc.pack()
+        btn_select_key.pack()
+        label_selected_key.pack()
+
+        
+        btn_verify.pack()
+
+        self.verify_popup.mainloop()
 
     def __init__(self):
         self.window = tk.Tk()
@@ -343,9 +417,11 @@ class GUIAPP:
 
         btn_generate_key = ttk.Button(self.window, text="Generate key pair", command=self.keys_window)
         btn_sign_doc = ttk.Button(self.window, text="Sign document", command=self.sign_window)
+        btn_verify_doc = ttk.Button(self.window, text="Verify signature", command=self.verify_window)
 
         btn_generate_key.pack()
         btn_sign_doc.pack()
+        btn_verify_doc.pack()
         self.window.mainloop()
 
 app = GUIAPP()
