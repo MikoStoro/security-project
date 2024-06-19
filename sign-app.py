@@ -27,20 +27,21 @@ def save_key(key,name = "key"):
     with open(name, 'wb') as f:
         f.write(key)
 
-mode = AES.MODE_ECB
+mode = AES.MODE_CBC
+iv = b'1234123412341234'
 
 def pin_to_hash(pin):
     return SHA256.new(pin).hexdigest()[:16].encode()
 
 def encrypt_key_aes(data, pin):
     pin_hash = pin_to_hash(pin)
-    cipher = AES.new(pin_hash, mode)
+    cipher = AES.new(pin_hash, mode,iv)
     ciphertext = cipher.encrypt(pad(data,16))
     return ciphertext
 
 def decrypt_key_aes(data,pin):
     pin_hash = pin_to_hash(pin)
-    cipher = AES.new(pin_hash, mode)
+    cipher = AES.new(pin_hash, mode, iv)
     decyphered = unpad(cipher.decrypt(data),16)
     return decyphered
 
@@ -148,7 +149,7 @@ def verify_xml_signature(path_to_signature, path_to_file, public_key):
     signed_hash = root.find('document_hash').text
     metadata = root.find('document_metadata')
     
-    message = "Signed by " + signed_by + " on " + timestamp
+    message = "Signed by " + signed_by + " on " + timestamp + "\n\n"
     print(message)
 
     docname_ok = metadata.find("document_name").text == ''.join(path_to_file.split('/')[-1].split('.')[:-1])
@@ -178,7 +179,7 @@ def verify_xml_signature(path_to_signature, path_to_file, public_key):
         signature_status = "Valid"
     else:
         signature_status = "Invalid"
-    message = "SIGNATURE STATUS: " + signature_status +"\n"
+    message += "SIGNATURE STATUS: " + signature_status +"\n"
 
 
     message += "Document name: " + str(docname_ok) + "\n"
